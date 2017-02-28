@@ -1,0 +1,51 @@
+from flask import Flask,  jsonify,  abort
+from flask import request
+
+import re
+import logging
+
+app = Flask(__name__)
+
+objects = {}
+
+@app.route('/')
+def index():
+    return "Hello, World!"
+
+@app.route('/api/objects', methods=['GET'])
+def get_objects():
+    listOfKeys = objects.keys()
+    logging.warning(objects)
+    #return ''.join(str(k) for k in listOfKeys)
+    return jsonify(objects)
+
+@app.route('/api/objects/<string:object_key>', methods=['GET'])
+def get_object(object_key):
+    if re.match('^[a-zA-Z0-9]*$',  object_key) == None or len(object_key) > 100:
+        abort(400)
+        
+    object = [object for object in objects if object['id'] == object_key]
+    if len(object) == 0:
+        abort(404)
+        
+    return jsonify({'object': object[0]})
+
+@app.route('/api/objects/<string:object_key>', methods=['PUT'])
+def update_task(object_key):
+#    object = [object for object in objects if object['id'] == object_key]
+#    
+#    if len(object) == 0:
+#        abort(404)
+#    if not request.json:
+#        abort(400)
+
+    if re.match('^[a-zA-Z0-9]*$',  object_key) == None or len(object_key) > 100:
+        abort(400)
+    
+    request.get_data()
+    objects[object_key] = request.data
+    
+    return jsonify(objects[object_key])
+
+if __name__ == '__main__':
+    app.run(debug=True)
