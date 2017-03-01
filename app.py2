@@ -5,18 +5,22 @@ import re
 import sys
 
 import pickledb 
+import logging
 
 app = Flask(__name__)
 
 ONE_MB = 1000000
 
 DICT_NAME = 'objects'
+DICT_HEADERS = 'headers'
 
 objects = pickledb.load('objects.db', False) 
 
 if objects.get(DICT_NAME) == None:
     objects.dcreate(DICT_NAME)
-
+    
+if objects.get(DICT_HEADERS) == None:
+    objects.dcreate(DICT_HEADERS)
 
 @app.route('/')
 def index():
@@ -33,17 +37,34 @@ def get_object(object_key):
     if re.match('^[a-zA-Z0-9]*$',  object_key) == None or len(object_key) > 100:
         abort(400)
     
-    if not check_if_key_exists(object_key):
+    if not check_if_key_exists(DICT_NAME,  object_key):
         abort(404)
+    
+    if not check_if_key_exists(DICT_HEADERS,  object_key):
+        return 'Oops this should never happen. We have name but no content type key.\n',  404
         
     object = objects.dget(DICT_NAME,  object_key)
+    content_type = objects.dget(DICT_HEADERS,  object_key)
     
-    return jsonify(object)
+    # I assume here object is a text or something that can get parsed here
+    # I dont use jsonify, because I add my Content-Type to the header
+    return object,  200, {'Content-Type':  content_type}
 
 @app.route('/api/objects/<string:object_key>', methods=['PUT'])
 def update_object(object_key):
+    logging.warning(request.headers['Content-Type'] )
+    # header from regular curl put will have Content-Type set as
+    # application/x-www-form-urlencoded
+    # I could reject it here, but instead, I will just save it
+    # the task is not fully specified for this
+    # if you want to reject the default Content-Type, uncomment following two lines
+    #if request.headers['Content-Type'] == 'application/x-www-form-urlencoded':
+    #   return 'You need to set Content-Type field\n',  406
+        
     if re.match('^[a-zA-Z0-9]*$',  object_key) == None or len(object_key) > 100:
         abort(400)
+        
+    content_type = request.headers['Content-Type']
     
     request.get_data()
     sizeOfData = sys.getsizeof(request.data)
@@ -52,6 +73,8 @@ def update_object(object_key):
         return '',  413
         
     objects.dadd(DICT_NAME,  (object_key,  request.data))
+    objects.dadd(DICT_HEADERS,  (object_key,  content_type))
+    
     objects.dump()
     
     return '', 201
@@ -67,7 +90,7 @@ def delete_object(object_key):
     
     return ""
     
-def check_if_key_exists(object_key):
+def check_if_key_exists(DICTIONARY_NAME,  object_key):
     # normally I would use this one, but this call seems to be broken
     # I could fix the pickleDB (it calls the dictionary on non existent key and raises Key Error expetion)
     # For the sake of the exercise, I will retrieve a list of keys instead, and iterate over it
@@ -75,7 +98,7 @@ def check_if_key_exists(object_key):
     # Michal
     #return objects.dexists(DICT_NAME,  object_key)
     
-    for key in objects.dkeys(DICT_NAME):
+    for key in objects.dkeys(DICTIONARY_NAME):
         if object_key == key:
             return 1
     
