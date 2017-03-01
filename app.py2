@@ -2,12 +2,19 @@ from flask import Flask,  jsonify,  abort
 from flask import request
 
 import re
-import logging
 import sys
+
+import pickledb 
 
 app = Flask(__name__)
 
-objects = {}
+DICT_NAME = 'objects'
+
+objects = pickledb.load('objects.db', False) 
+
+if objects.get(DICT_NAME) == None:
+    objects.dcreate(DICT_NAME)
+
 
 @app.route('/')
 def index():
@@ -15,8 +22,7 @@ def index():
 
 @app.route('/api/objects', methods=['GET'])
 def get_objects():
-    listOfKeys = objects.keys()
-    logging.warning(objects)
+    listOfKeys = objects.dkeys(DICT_NAME)
 
     return jsonify(listOfKeys)
 
@@ -25,10 +31,10 @@ def get_object(object_key):
     if re.match('^[a-zA-Z0-9]*$',  object_key) == None or len(object_key) > 100:
         abort(400)
     
-    if object_key not in objects:
+    if not check_if_key_exists(object_key):
         abort(404)
         
-    object = objects[object_key]
+    object = objects.dget(DICT_NAME,  object_key)
     
     return jsonify(object)
 
@@ -43,20 +49,34 @@ def update_object(object_key):
     if sizeOfData > 41:
         return '',  413
         
-    objects[object_key] = request.data
+    objects.dadd(DICT_NAME,  (object_key,  request.data))
+    objects.dump()
     
     return '', 201
 
 @app.route('/api/objects/<string:object_key>', methods=['DELETE'])
 def delete_object(object_key):
     
-    if object_key not in objects:
+    if not check_if_key_exists(object_key):
         abort(404)
     
-    objects.pop(object_key,  None)
+    objects.dpop(DICT_NAME,  object_key)
+    objects.dump()
     
     return ""
     
-
+def check_if_key_exists(object_key):
+    # normally I would use this one, but this call seems to be broken
+    # I could fix the pickleDB (it calls the dictionary on non existent key and raises Key Error expetion)
+    # For the sake of the exercise, I will retrieve a list of keys instead, and iterate over it
+    # I know it's not very efficient, later I'd change it to actual dictionary
+    # Michal
+    #return objects.dexists(DICT_NAME,  object_key)
+    
+    for key in objects.dkeys(DICT_NAME):
+        if object_key == key:
+            return 1
+    
+    return 0
 if __name__ == '__main__':
     app.run(debug=True)
