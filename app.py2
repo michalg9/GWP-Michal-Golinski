@@ -8,6 +8,8 @@ import pickledb
 
 app = Flask(__name__)
 
+ONE_MB = 1000000
+
 DICT_NAME = 'objects'
 
 objects = pickledb.load('objects.db', False) 
@@ -46,7 +48,7 @@ def update_object(object_key):
     request.get_data()
     sizeOfData = sys.getsizeof(request.data)
     
-    if sizeOfData > 41:
+    if sizeOfData > ONE_MB:
         return '',  413
         
     objects.dadd(DICT_NAME,  (object_key,  request.data))
