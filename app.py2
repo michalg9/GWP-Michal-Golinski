@@ -104,4 +104,4 @@ def check_if_key_exists(DICTIONARY_NAME,  object_key):
     
     return 0
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(port=8080)
